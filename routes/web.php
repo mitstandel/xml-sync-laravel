@@ -18,4 +18,4 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get("sync", [PropertyController::class, "sync"]);
+Route::get("sync/{type}", [PropertyController::class, "sync"]);

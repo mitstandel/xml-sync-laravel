@@ -6,51 +6,50 @@ use App\Models\Property;
 use App\Models\PropertyAgents;
 use App\Models\PropertyFiles;
 use App\Models\XMLMigrations;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 
 class PropertyController extends Controller
 {
-    public function sync()
+    public function sync(string $dataType)
     {
+        if (!in_array($dataType, ['propertyme', 'agentbox'])) {
+            die('Invalid Request');
+        }
+
         $xmlMigrationObject = XMLMigrations::get(); //dd($xmlMigrations);
 
         $xmlMigrations = array();
-        if ($xmlMigrationObject->count() > 0)
-        {
-            foreach ($xmlMigrationObject->toArray() as $row)
-            {
+        if ($xmlMigrationObject->count() > 0) {
+            foreach ($xmlMigrationObject->toArray() as $row) {
                 $xmlMigrations[] = $row['filename'];
             }
         }
 
-        $filesInFolder = File::files('E:\xampp\htdocs\infinity\xml-files');     
+        $filesInFolder = File::files(env('FILES_ROOT') . '/' . $dataType);
         foreach ($filesInFolder as $path) {
 
             $filename = basename($path);
 
-            if(in_array($filename, $xmlMigrations)) continue;
+            if (in_array($filename, $xmlMigrations)) continue;
 
             $xmlString = file_get_contents($path);
             $xmlObject = simplexml_load_string($xmlString);
 
-            foreach ($xmlObject as $type => $object)
-            {
+            foreach ($xmlObject as $type => $object) {
                 $extraFields = array();
-                foreach ($object->extraFields as $field)
-                {
+                foreach ($object->extraFields as $field) {
                     $key = (string) $field->attributes()->name;
 
-                    if (isset($field->attributes()->value)) 
-                    {
+                    if (isset($field->attributes()->value)) {
                         $extraFields[$key] = (string) $field->attributes()->value;
                     }
                 }
 
                 $modifyDate = $object->attributes()->modTime;
 
-                $date = date_create_from_format('Y-m-d-H:i:s', $modifyDate);
-                $modifyDate = date('Y-m-d H:i:s', $date->getTimestamp());
+                $modifyDate = Carbon::parse($modifyDate)->format('Y-m-d H:i:s');
 
                 $propertyData = array(
                     'type' => $type,
@@ -58,37 +57,52 @@ class PropertyController extends Controller
                     'status' => (string) $object->attributes()->status,
                     'agent_code' => (string) $object->agentID,
                     'unique_code' => (string) $object->uniqueID,
-                    'price' => (double) $object->price,
-                    'area' => (double) $object->landDetails->area,
-                    'frontage' => (double) $object->landDetails->frontage,
-                    'address' => $extraFields['streetAddress'].', '.$object->address->suburb.', '.$object->address->state.' - '.$object->address->postcode,
+                    'price' => (float) $object->price,
+                    'area' => (float) $object->landDetails->area,
+                    'frontage' => (float) $object->landDetails->frontage,
+                    'address' => $object->address->streetNumber . ', ' . $object->address->street . ', ' . $object->address->suburb . ', ' . $object->address->state . ' - ' . $object->address->postcode,
                     'bedrooms' => (int) $object->features->bedrooms,
                     'bathrooms' => (int) $object->features->bathrooms,
                     'open_spaces' => (int) $object->features->openSpaces,
                     'headline' => (string) $object->headline,
                     'description' => (string) $object->description,
-                    'latitude' => $extraFields['geoLat'],
-                    'longitude' => $extraFields['geoLong']
+                    'latitude' => @$extraFields['geoLat'],
+                    'longitude' => @$extraFields['geoLong']
                 );
+
+                if ($dataType == 'propertyme') {
+                    $propertyData['rent'] = $object->rent ?? NULL;
+                    $propertyData['rent_type'] = $object->rent->attributes()->period ?? NULL;
+                    $propertyData['bond'] = $object->bond ?? NULL;
+                    $propertyData['area'] = !empty($object->buildingDetails->area) ? $object->buildingDetails->area : NULL;
+
+                    if (isset($object->commercialRent)) {
+                        $propertyData['rent'] = $object->commercialRent ?? NULL;
+                        $propertyData['rent_type'] = $object->commercialRent->attributes()->period ?? NULL;
+                    }
+                }
 
                 $updateFields = array('type', 'last_modify_date', 'status', 'agent_code', 'price', 'area', 'frontage', 'address', 'bedrooms', 'bathrooms', 'open_spaces', 'headline', 'description', 'latitude', 'longitude');
 
-                if (isset($object->landCategory))
-                {
+                if (isset($object->landCategory)) {
                     $propertyData['category'] = (string) $object->landCategory->attributes()->name;
 
                     array_push($updateFields, 'category');
                 }
 
-                if (isset($object->category))
-                {
+                if (isset($object->category)) {
                     $propertyData['category'] = (string) $object->category->attributes()->name;
 
                     array_push($updateFields, 'category');
                 }
 
-                if (isset($object->soldDetails))
-                {
+                if (isset($object->commercialCategory)) {
+                    $propertyData['category'] = (string) $object->commercialCategory->attributes()->name;
+
+                    array_push($updateFields, 'category');
+                }
+
+                if (isset($object->soldDetails)) {
                     $propertyData['sold_price'] = (string) $object->soldDetails->soldPrice;
                     $propertyData['sold_date'] = (string) $object->soldDetails->soldDate;
 
@@ -101,41 +115,45 @@ class PropertyController extends Controller
                 $this->saveObjects($object->objects->img, $property);
                 $this->saveObjects($object->objects->floorplan, $property, 'floor-plan');
 
-                $fileAttrs = $object->media->attachment->attributes();
+                if (isset($object->media) && isset($object->media->attachment)) {
 
-                if (isset($fileAttrs->url))
-                {
-                    $fileData = array(
-                        'property_id' => $property->id,
-                        'file_id' => (string) $fileAttrs->id,
-                        'type' => (string) $fileAttrs->usage,
-                        'url' => (string) $fileAttrs->url,
-                        'format' => (string) $fileAttrs->contentType
-                    );
+                    $fileAttrs = $object->media->attachment->attributes();
 
-                    $updateFields = array('url', 'format');
+                    if (isset($fileAttrs->url)) {
+                        $fileData = array(
+                            'property_id' => $property->id,
+                            'file_id' => (string) $fileAttrs->id,
+                            'type' => (string) $fileAttrs->usage,
+                            'url' => (string) $fileAttrs->url,
+                            'format' => (string) $fileAttrs->contentType
+                        );
 
-                    PropertyFiles::upsert($fileData, $updateFields);
+                        $updateFields = array('url', 'format');
+
+                        PropertyFiles::upsert($fileData, $updateFields);
+                    }
                 }
 
-                foreach ($object->listingAgent as $agent)
-                {
-                    $agentAttrs = $agent->attributes();
+                if (isset($object->listingAgent)) {
 
-                    if (!isset($agent->name)) continue;
+                    foreach ($object->listingAgent as $agent) {
+                        $agentAttrs = $agent->attributes();
 
-                    $agentData = array(
-                        'property_id' => $property->id,
-                        'agent_id' => (string) $agentAttrs->id,
-                        'agent_name' => (string) $agent->name,
-                        'agent_mobile' => (string) $agent->telephone[0],
-                        'agent_bh' => (string) $agent->telephone[1],
-                        'agent_email' => (string) $agent->email
-                    );
+                        if (!isset($agent->name)) continue;
 
-                    $updateFields = array('agent_name', 'agent_mobile', 'agent_bh', 'agent_email');
+                        $agentData = array(
+                            'property_id' => $property->id,
+                            'agent_id' => (string) $agentAttrs->id,
+                            'agent_name' => (string) $agent->name,
+                            'agent_mobile' => (string) $agent->telephone[0],
+                            'agent_bh' => (string) $agent->telephone[1],
+                            'agent_email' => (string) $agent->email
+                        );
 
-                    PropertyAgents::upsert($agentData, $updateFields);
+                        $updateFields = array('agent_name', 'agent_mobile', 'agent_bh', 'agent_email');
+
+                        PropertyAgents::upsert($agentData, $updateFields);
+                    }
                 }
             }
 
@@ -150,21 +168,19 @@ class PropertyController extends Controller
 
     public function saveObjects($object, $property, $type = 'image')
     {
-        foreach ($object as $files)
-        {
+        foreach ($object as $files) {
             $fileAttrs = $files->attributes();
 
             if (!isset($fileAttrs->url)) continue;
 
             $modifyDate = $fileAttrs->modTime;
 
-            $date = date_create_from_format('Y-m-d-H:i:s', $modifyDate);
-            $modifyDate = date('Y-m-d H:i:s', $date->getTimestamp());
+            $modifyDate = Carbon::parse($modifyDate)->format('Y-m-d H:i:s');
 
             $fileData = array(
                 'property_id' => $property->id,
                 'file_id' => (string) $fileAttrs->id,
-                'record_id' => (string) $fileAttrs->recordId,
+                'record_id' => $fileAttrs->recordId ?? NULL,
                 'last_modify_date' => $modifyDate,
                 'type' => $type,
                 'title' => (string) $fileAttrs->title,

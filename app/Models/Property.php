@@ -47,6 +47,9 @@ class Property extends Model
         'headline',
         'description',
         'latitude',
-        'longitude'
+        'longitude',
+        'rent',
+        'bond',
+        'rent_type',
     ];
 }
