@@ -112,7 +112,9 @@ class PropertyController extends Controller
 
                 $property = Property::updateOrCreate(array('unique_code' => (string) $object->uniqueID), $propertyData);
 
-                $this->saveObjects($object->objects->img, $property);
+                $imageObject = $dataType == 'propertyme' ? $object->images->img : $object->objects->img;
+
+                $this->saveObjects($imageObject, $property);
                 $this->saveObjects($object->objects->floorplan, $property, 'floor-plan');
 
                 if (isset($object->media) && isset($object->media->attachment)) {
@@ -134,7 +136,7 @@ class PropertyController extends Controller
                     }
                 }
 
-                if (isset($object->listingAgent)) {
+                if (isset($object->listingAgent) && $dataType == 'agentbox') {
 
                     foreach ($object->listingAgent as $agent) {
                         $agentAttrs = $agent->attributes();
@@ -154,6 +156,21 @@ class PropertyController extends Controller
 
                         PropertyAgents::upsert($agentData, $updateFields);
                     }
+                } else {
+                    $agentData = array(
+                        'property_id' => $property->id,
+                        'agent_id' => 1,
+                        'agent_name' => 'Kanan Patel',
+                        'agent_mobile' => '0433 410 105',
+                        'agent_bh' => '0433 410 105',
+                        'agent_email' => 'kanan@infinityre.com.au',
+                        'main_agent' => '1',
+                        'slug' => 'kanan-patel',
+                    );
+
+                    $updateFields = array('agent_name', 'agent_mobile', 'agent_bh', 'agent_email');
+
+                    PropertyAgents::upsert($agentData, $updateFields);
                 }
             }
 
