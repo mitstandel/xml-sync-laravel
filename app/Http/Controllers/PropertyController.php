@@ -114,8 +114,8 @@ class PropertyController extends Controller
 
                 $imageObject = $dataType == 'propertyme' ? $object->images->img : $object->objects->img;
 
-                $this->saveObjects($imageObject, $property);
-                $this->saveObjects($object->objects->floorplan, $property, 'floor-plan');
+                $this->saveObjects($dataType, $imageObject, $property);
+                $this->saveObjects($dataType, $object->objects->floorplan, $property, 'floor-plan');
 
                 if (isset($object->media) && isset($object->media->attachment)) {
 
@@ -183,12 +183,30 @@ class PropertyController extends Controller
         }
     }
 
-    public function saveObjects($object, $property, $type = 'image')
+    public function saveObjects($dataType, $object, $property, $type = 'image')
     {
+        $config = config('data.' . $dataType);
+        
         foreach ($object as $files) {
             $fileAttrs = $files->attributes();
 
             if (!isset($fileAttrs->url)) continue;
+
+            $fileUrl = $fileAttrs->url;
+            if (isset($config['download-images']) && $config['download-images'] === true) {
+
+                if (!isset($config['download-path'])) {
+                    die ('Download Path is not set for images');
+                }
+
+                $fileName = basename($fileAttrs->url);
+                $filePath = $config['download-path'].'/'.$fileName;
+
+                $photoFile = file_get_contents($fileAttrs->url);
+                file_put_contents($filePath, $photoFile);
+
+                $fileUrl = $config['download-url'].'/'.$dataType.'/'.$fileName;
+            }
 
             $modifyDate = $fileAttrs->modTime;
 
@@ -201,7 +219,7 @@ class PropertyController extends Controller
                 'last_modify_date' => $modifyDate,
                 'type' => $type,
                 'title' => (string) $fileAttrs->title,
-                'url' => (string) $fileAttrs->url,
+                'url' => (string) $fileUrl,
                 'format' => (string) $fileAttrs->format
             );
 
