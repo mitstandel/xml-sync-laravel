@@ -29,6 +29,7 @@ class Property extends Model
      * @var array
      */
     protected $fillable = [
+        'main_type',
         'type',
         'last_modify_date',
         'status',
@@ -51,5 +52,9 @@ class Property extends Model
         'rent',
         'bond',
         'rent_type',
+        'street_address',
+        'suburb',
+        'state',
+        'postcode',
     ];
 }

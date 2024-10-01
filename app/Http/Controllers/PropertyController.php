@@ -52,6 +52,7 @@ class PropertyController extends Controller
                 $modifyDate = Carbon::parse($modifyDate)->format('Y-m-d H:i:s');
 
                 $propertyData = array(
+                    'main_type' => $dataType,
                     'type' => $type,
                     'last_modify_date' => $modifyDate,
                     'status' => (string) $object->attributes()->status,
@@ -61,6 +62,10 @@ class PropertyController extends Controller
                     'area' => (float) $object->landDetails->area,
                     'frontage' => (float) $object->landDetails->frontage,
                     'address' => $object->address->streetNumber . ', ' . $object->address->street . ', ' . $object->address->suburb . ', ' . $object->address->state . ' - ' . $object->address->postcode,
+                    'street_address' => $object->address->streetNumber . ', ' . $object->address->street,
+                    'suburb' => $object->address->suburb,
+                    'state' => $object->address->state,
+                    'postcode' => $object->address->postcode,
                     'bedrooms' => (int) $object->features->bedrooms,
                     'bathrooms' => (int) $object->features->bathrooms,
                     'open_spaces' => (int) $object->features->openSpaces,
