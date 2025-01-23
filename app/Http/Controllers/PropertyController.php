@@ -200,6 +200,12 @@ class PropertyController extends Controller
             $fileUrl = $fileAttrs->url;
             if (isset($config['download-images']) && $config['download-images'] === true) {
 
+                $headers = get_headers($fileAttrs->url, 1);
+
+                if ($headers[0] !== 'HTTP/1.1 200 OK') {
+                    continue;
+                }
+
                 if (!isset($config['download-path'])) {
                     die ('Download Path is not set for images');
                 }
