@@ -9,9 +9,24 @@ use App\Models\XMLMigrations;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 
 class PropertyController extends Controller
 {
+    public function generateSlugs()
+    {
+        $properties = Property::all(); //dd($properties);
+
+        if (!$properties) {
+
+        }
+
+        foreach ($properties as $property) {
+            $property->slug = Str::slug($property->address.' '.$property->unique_code);
+            $property->update();
+        }
+    }
+
     public function sync(string $dataType)
     {
         if (!in_array($dataType, ['propertyme', 'agentbox'])) {
@@ -51,6 +66,8 @@ class PropertyController extends Controller
 
                 $modifyDate = Carbon::parse($modifyDate)->format('Y-m-d H:i:s');
 
+                $address = $object->address->streetNumber . ', ' . $object->address->street . ', ' . $object->address->suburb . ', ' . $object->address->state . ' - ' . $object->address->postcode;
+
                 $propertyData = array(
                     'main_type' => $dataType,
                     'type' => $type,
@@ -61,7 +78,7 @@ class PropertyController extends Controller
                     'price' => (float) $object->price,
                     'area' => (float) $object->landDetails->area,
                     'frontage' => (float) $object->landDetails->frontage,
-                    'address' => $object->address->streetNumber . ', ' . $object->address->street . ', ' . $object->address->suburb . ', ' . $object->address->state . ' - ' . $object->address->postcode,
+                    'address' => $address,
                     'street_address' => $object->address->streetNumber . ', ' . $object->address->street,
                     'suburb' => $object->address->suburb,
                     'state' => $object->address->state,
@@ -72,7 +89,8 @@ class PropertyController extends Controller
                     'headline' => (string) $object->headline,
                     'description' => (string) $object->description,
                     'latitude' => @$extraFields['geoLat'],
-                    'longitude' => @$extraFields['geoLong']
+                    'longitude' => @$extraFields['geoLong'],
+                    'slug' => Str::slug($address.' '.$object->uniqueID),
                 );
 
                 if ($dataType == 'propertyme') {
