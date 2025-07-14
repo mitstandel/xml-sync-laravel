@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PropertyController;
+use Illuminate\Support\Facades\Artisan;
 
 /*
 |--------------------------------------------------------------------------
@@ -19,3 +20,9 @@ Route::get('/', function () {
 });
 
 Route::get("sync/{type}", [PropertyController::class, "sync"]);
+
+Route::get("/generate-slugs", [PropertyController::class, "generateSlugs"]);
+
+Route::get('optimize', function() {
+    Artisan::call('optimize:clear');
+});

@@ -13,6 +13,20 @@ use Illuminate\Support\Str;
 
 class PropertyController extends Controller
 {
+    public function generateSlugs()
+    {
+        $properties = Property::all(); //dd($properties);
+
+        if (!$properties) {
+
+        }
+
+        foreach ($properties as $property) {
+            $property->slug = Str::slug($property->address.' '.$property->unique_code);
+            $property->update();
+        }
+    }
+
     public function sync(string $dataType)
     {
         if (!in_array($dataType, ['propertyme', 'agentbox'])) {
