@@ -224,8 +224,8 @@ class PropertyController extends Controller
                     continue;
                 }
 
-                if (!isset($config['download-path'])) {
-                    die ('Download Path is not set for images');
+                if (!isset($config['download-path']) || empty($config['download-path'])) {
+                    die ('Download Path is not set for images: '.$dataType);
                 }
 
                 $fileName = basename($fileAttrs->url);
