@@ -90,7 +90,7 @@ class PropertyController extends Controller
                     'description' => (string) $object->description,
                     'latitude' => @$extraFields['geoLat'],
                     'longitude' => @$extraFields['geoLong'],
-                    'slug' => Str::slug($address.' '.$object->uniqueID),
+                    'slug' => Str::slug($address.' '.(string) $object->uniqueID)
                 );
 
                 if ($dataType == 'propertyme') {
@@ -224,8 +224,8 @@ class PropertyController extends Controller
                     continue;
                 }
 
-                if (!isset($config['download-path'])) {
-                    die ('Download Path is not set for images');
+                if (!isset($config['download-path']) || empty($config['download-path'])) {
+                    die ('Download Path is not set for images: '.$dataType);
                 }
 
                 $fileName = basename($fileAttrs->url);
