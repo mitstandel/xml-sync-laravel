@@ -56,5 +56,6 @@ class Property extends Model
         'suburb',
         'state',
         'postcode',
+        'slug',
     ];
 }
