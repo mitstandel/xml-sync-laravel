@@ -15,7 +15,7 @@ class PropertyController extends Controller
 {
     public function generateSlugs()
     {
-        $properties = Property::all(); //dd($properties);
+        $properties = Property::whereNull('slug')->get(); //dd($properties);
 
         if (!$properties) {
 
